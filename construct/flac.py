@@ -32,13 +32,15 @@ metadata_streaminfo = BitStruct('streaminfo',
                                 BitField('total_samples', 36),
                                 BitField('md5_signature', 128))
 
-metadata_vorbis_comment = Struct('vorbis_comment')
+metadata_vorbis_comment = Struct('vorbis_comment',
+                                 PascalString('vendor'))
 
 metadata_block = Struct('metadata_block',
                         Rename('header', metadata_block_header),
                         Switch('metadata', lambda ctx: ctx['header'].block_type,
                                {
-                                   'STREAMINFO': metadata_streaminfo
+                                   'STREAMINFO': metadata_streaminfo,
+                                   'VORBIS_COMMENT': metadata_vorbis_comment
                                },
                                default=Pass))
 
