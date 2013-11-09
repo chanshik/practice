@@ -33,7 +33,12 @@ metadata_streaminfo = BitStruct('streaminfo',
                                 BitField('md5_signature', 128))
 
 metadata_vorbis_comment = Struct('vorbis_comment',
-                                 PascalString('vendor'))
+                                 PascalString('vendor_string',
+                                              length_field=ULInt32('vendor_length')),
+                                 ULInt32('user_comment_list_length'),
+                                 Array(lambda ctx: ctx.user_comment_list_length,
+                                       PascalString('user_comment',
+                                                    length_field=ULInt32('user_comment_length'))))
 
 metadata_block = Struct('metadata_block',
                         Rename('header', metadata_block_header),
