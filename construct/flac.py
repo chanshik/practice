@@ -1,3 +1,16 @@
+"""
+FLAC file header reading script using construct.
+
+References:
+    https://xiph.org/flac/format.html
+    http://www.xiph.org/vorbis/doc/v-comment.html
+
+FLAC Sample files:
+    http://www.2l.no/hires/index.html
+
+Written by Chan Shik Lim. (chanshik@gmail.com)
+"""
+
 from construct import *
 from binascii import unhexlify
 import sys
@@ -124,7 +137,8 @@ metadata_block = Struct('metadata_block',
                                    'SEEKTABLE': metadata_seektable,
                                    'CUESHEET': metadata_cuesheet,
                                    'PICTURE': metadata_picture
-                               }
+                               },
+                               default=Pass
                         ))
 
 flac = Struct('flac',
@@ -160,13 +174,10 @@ if __name__ == '__main__':
                 "14 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 "
     flac_data = six.b(flac_data).replace(' ', '')
 
-    try:
-        if len(sys.argv) == 1:
-            f = flac.parse(unhexlify(flac_data))
-        else:
-            f = flac.parse(open(sys.argv[1]).read())
-    except SwitchError:
-        pass
+    if len(sys.argv) == 1:
+        f = flac.parse(unhexlify(flac_data))
+    else:
+        f = flac.parse(open(sys.argv[1]).read())
 
     print f.metadata_block[0]  # May be 'STREAMINFO'
     print f.metadata_block[1]  # May be 'VORBIS_COMMENT'
