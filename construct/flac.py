@@ -1,6 +1,18 @@
 from construct import *
 from binascii import unhexlify
+import sys
 import six
+import pprint
+
+
+class PrintContext(Construct):
+    """
+    Print current context structure.
+    """
+    def _parse(self, stream, context):
+        print "\n# PrintContext ---"
+        pprint.pprint(context)
+        print "# --- PrintContent\n"
 
 
 def enum_block_type(block_type):
@@ -40,18 +52,85 @@ metadata_vorbis_comment = Struct('vorbis_comment',
                                        PascalString('user_comment',
                                                     length_field=ULInt32('user_comment_length'))))
 
+metadata_padding = Struct('padding',
+                          Padding(lambda ctx: ctx['_'].header.length))
+
+metadata_application = Struct('application',
+                              UBInt32('registered_application_id'),
+                              Field('application_data', lambda ctx: ctx['_'].header.length))
+
+seekpoint = Struct('seekpoint',
+                   UBInt64('sample_number_of_first_sample'),
+                   UBInt64('offset'),
+                   UBInt16('number_of_samples'))
+
+metadata_seektable = Struct('seektable',
+                            Array(lambda ctx: ctx['_'].header.length / 8,
+                                  seekpoint))
+
+cuesheet_track_index = Struct('cuesheet_track_index',
+                              UBInt64('offset_in_samples'),
+                              UBInt8('index_point_number'),
+                              Padding(3))
+
+cuesheet_track = Struct('cuesheet_track',
+                        UBInt64('track_offset'),
+                        UBInt8('track_number'),
+                        String('ISRC', 12),
+                        EmbeddedBitStruct(
+                            Flag('track_type'),
+                            Flag('pre-emphasis'),
+                            Padding(6)
+                        ),
+                        Padding(13),
+                        UBInt8('number_of_track_index_points'),
+                        Array(lambda ctx: ctx.number_of_track_index_points,
+                              cuesheet_track_index))
+
+metadata_cuesheet = Struct('cuesheet',
+                           String('media_catalog_number', 128),
+                           UBInt64('number_of_lead_in_samples'),
+                           EmbeddedBitStruct(
+                               Flag('is_compact_disc'),
+                               Padding(7)),
+                           Padding(258),
+                           UBInt8('number_of_tracks'),
+                           Array(lambda ctx: ctx.number_of_tracks,
+                                 cuesheet_track)
+                           )
+
+metadata_picture = Struct('picture',
+                          UBInt32('picture_type'),
+                          UBInt32('length_of_mime'),
+                          String('mime', lambda ctx: ctx.length_of_mime),
+                          UBInt32('length_of_description'),
+                          String('description', lambda ctx: ctx.length_of_description),
+                          UBInt32('width'),
+                          UBInt32('height'),
+                          UBInt32('bits_per_pixel'),
+                          UBInt32('number_of_colors'),
+                          UBInt32('length_of_picture'),
+                          Field('picture_data', lambda ctx: ctx.length_of_picture)
+                          )
+
 metadata_block = Struct('metadata_block',
                         Rename('header', metadata_block_header),
                         Switch('metadata', lambda ctx: ctx['header'].block_type,
                                {
                                    'STREAMINFO': metadata_streaminfo,
-                                   'VORBIS_COMMENT': metadata_vorbis_comment
-                               },
-                               default=Pass))
+                                   'VORBIS_COMMENT': metadata_vorbis_comment,
+                                   'PADDING': metadata_padding,
+                                   'APPLICATION': metadata_application,
+                                   'SEEKTABLE': metadata_seektable,
+                                   'CUESHEET': metadata_cuesheet,
+                                   'PICTURE': metadata_picture
+                               }
+                        ))
 
 flac = Struct('flac',
               Magic('fLaC'),
-              OptionalGreedyRange(
+              RepeatUntil(
+                  lambda obj, ctx: obj.header.last_metadata_block is True,
                   metadata_block
               ))
 
@@ -79,8 +158,15 @@ if __name__ == '__main__':
                 "53 43 53 3D 31 0D 00 00 00 54 4F 54 41 4C 54 52 41 43 4B 53 3D " \
                 "39 0D 00 00 00 54 52 41 43 4B 4E 55 4D 42 45 52 3D 31 81 00 1E " \
                 "8B 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"
-    flac_data = flac_data.replace(' ', '')
+    flac_data = six.b(flac_data).replace(' ', '')
 
-    f = flac.parse(unhexlify(flac_data))
+    try:
+        if len(sys.argv) == 1:
+            f = flac.parse(unhexlify(flac_data))
+        else:
+            f = flac.parse(open(sys.argv[1]).read())
+    except SwitchError:
+        pass
 
-    print f
+    print f.metadata_block[0]  # May be 'STREAMINFO'
+    print f.metadata_block[1]  # May be 'VORBIS_COMMENT'
