@@ -39,114 +39,119 @@ def enum_block_type(block_type):
                 PICTURE=6,
                 INVALID=127)
 
-metadata_block_header = BitStruct('metadata_block_header',
-                                  Flag('last_metadata_block'),
-                                  enum_block_type(BitField('block_type', 7)),
-                                  BitField('length', 24))
+metadata_block_header = BitStruct(
+    'metadata_block_header',
+    Flag('last_metadata_block'),
+    enum_block_type(BitField('block_type', 7)),
+    BitField('length', 24))
 
-metadata_streaminfo = BitStruct('streaminfo',
-                                BitField('minimum_block_size', 16),
-                                BitField('maximum_block_size', 16),
-                                BitField('minimum_frame_size', 24),
-                                BitField('maximum_frame_size', 24),
-                                BitField('sample_rate', 20),
-                                BitField('number_of_channels_minus_1', 3),
-                                Value('number_of_channels', lambda ctx: ctx.number_of_channels_minus_1 + 1),
-                                BitField('bits_per_sample_minus_1', 5),
-                                Value('bits_per_sample', lambda ctx: ctx.bits_per_sample_minus_1 + 1),
-                                BitField('total_samples', 36),
-                                BitField('md5_signature', 128))
+metadata_streaminfo = BitStruct(
+    'streaminfo',
+    BitField('minimum_block_size', 16),
+    BitField('maximum_block_size', 16),
+    BitField('minimum_frame_size', 24),
+    BitField('maximum_frame_size', 24),
+    BitField('sample_rate', 20),
+    BitField('number_of_channels_minus_1', 3),
+    Value('number_of_channels', lambda ctx: ctx.number_of_channels_minus_1 + 1),
+    BitField('bits_per_sample_minus_1', 5),
+    Value('bits_per_sample', lambda ctx: ctx.bits_per_sample_minus_1 + 1),
+    BitField('total_samples', 36),
+    BitField('md5_signature', 128))
 
-metadata_vorbis_comment = Struct('vorbis_comment',
-                                 PascalString('vendor_string',
-                                              length_field=ULInt32('vendor_length')),
-                                 ULInt32('user_comment_list_length'),
-                                 Array(lambda ctx: ctx.user_comment_list_length,
-                                       PascalString('user_comment',
-                                                    length_field=ULInt32('user_comment_length'))))
+metadata_vorbis_comment = Struct(
+    'vorbis_comment',
+    PascalString('vendor_string', length_field=ULInt32('vendor_length')),
+    ULInt32('user_comment_list_length'),
+    Array(lambda ctx: ctx.user_comment_list_length, PascalString('user_comment',
+    length_field=ULInt32('user_comment_length'))))
 
-metadata_padding = Struct('padding',
-                          Padding(lambda ctx: ctx['_'].header.length))
+metadata_padding = Struct(
+    'padding',
+    Padding(lambda ctx: ctx['_'].header.length))
 
-metadata_application = Struct('application',
-                              UBInt32('registered_application_id'),
-                              Field('application_data', lambda ctx: ctx['_'].header.length))
+metadata_application = Struct(
+    'application',
+    UBInt32('registered_application_id'),
+    Field('application_data', lambda ctx: ctx['_'].header.length))
 
-seekpoint = Struct('seekpoint',
-                   UBInt64('sample_number_of_first_sample'),
-                   UBInt64('offset'),
-                   UBInt16('number_of_samples'))
+seekpoint = Struct(
+    'seekpoint',
+    UBInt64('sample_number_of_first_sample'),
+    UBInt64('offset'),
+    UBInt16('number_of_samples'))
 
-metadata_seektable = Struct('seektable',
-                            Array(lambda ctx: ctx['_'].header.length / 8,
-                                  seekpoint))
+metadata_seektable = Struct(
+    'seektable',
+    Array(lambda ctx: ctx['_'].header.length / 8, seekpoint))
 
-cuesheet_track_index = Struct('cuesheet_track_index',
-                              UBInt64('offset_in_samples'),
-                              UBInt8('index_point_number'),
-                              Padding(3))
+cuesheet_track_index = Struct(
+    'cuesheet_track_index',
+    UBInt64('offset_in_samples'),
+    UBInt8('index_point_number'),
+    Padding(3))
 
-cuesheet_track = Struct('cuesheet_track',
-                        UBInt64('track_offset'),
-                        UBInt8('track_number'),
-                        String('ISRC', 12),
-                        EmbeddedBitStruct(
-                            Flag('track_type'),
-                            Flag('pre-emphasis'),
-                            Padding(6)
-                        ),
-                        Padding(13),
-                        UBInt8('number_of_track_index_points'),
-                        Array(lambda ctx: ctx.number_of_track_index_points,
-                              cuesheet_track_index))
+cuesheet_track = Struct(
+    'cuesheet_track',
+    UBInt64('track_offset'),
+    UBInt8('track_number'),
+    String('ISRC', 12),
+    EmbeddedBitStruct(
+        Flag('track_type'),
+        Flag('pre-emphasis'),
+        Padding(6)
+    ),
+    Padding(13),
+    UBInt8('number_of_track_index_points'),
+    Array(lambda ctx: ctx.number_of_track_index_points, cuesheet_track_index))
 
-metadata_cuesheet = Struct('cuesheet',
-                           String('media_catalog_number', 128),
-                           UBInt64('number_of_lead_in_samples'),
-                           EmbeddedBitStruct(
-                               Flag('is_compact_disc'),
-                               Padding(7)),
-                           Padding(258),
-                           UBInt8('number_of_tracks'),
-                           Array(lambda ctx: ctx.number_of_tracks,
-                                 cuesheet_track)
-                           )
+metadata_cuesheet = Struct(
+    'cuesheet',
+    String('media_catalog_number', 128),
+    UBInt64('number_of_lead_in_samples'),
+    EmbeddedBitStruct(
+        Flag('is_compact_disc'),
+        Padding(7)),
+    Padding(258),
+    UBInt8('number_of_tracks'),
+    Array(lambda ctx: ctx.number_of_tracks, cuesheet_track))
 
-metadata_picture = Struct('picture',
-                          UBInt32('picture_type'),
-                          UBInt32('length_of_mime'),
-                          String('mime', lambda ctx: ctx.length_of_mime),
-                          UBInt32('length_of_description'),
-                          String('description', lambda ctx: ctx.length_of_description),
-                          UBInt32('width'),
-                          UBInt32('height'),
-                          UBInt32('bits_per_pixel'),
-                          UBInt32('number_of_colors'),
-                          UBInt32('length_of_picture'),
-                          Field('picture_data', lambda ctx: ctx.length_of_picture)
-                          )
+metadata_picture = Struct(
+    'picture',
+    UBInt32('picture_type'),
+    UBInt32('length_of_mime'),
+    String('mime', lambda ctx: ctx.length_of_mime),
+    UBInt32('length_of_description'),
+    String('description', lambda ctx: ctx.length_of_description),
+    UBInt32('width'),
+    UBInt32('height'),
+    UBInt32('bits_per_pixel'),
+    UBInt32('number_of_colors'),
+    UBInt32('length_of_picture'),
+    Field('picture_data', lambda ctx: ctx.length_of_picture))
 
-metadata_block = Struct('metadata_block',
-                        Rename('header', metadata_block_header),
-                        Switch('metadata', lambda ctx: ctx['header'].block_type,
-                               {
-                                   'STREAMINFO': metadata_streaminfo,
-                                   'VORBIS_COMMENT': metadata_vorbis_comment,
-                                   'PADDING': metadata_padding,
-                                   'APPLICATION': metadata_application,
-                                   'SEEKTABLE': metadata_seektable,
-                                   'CUESHEET': metadata_cuesheet,
-                                   'PICTURE': metadata_picture
-                               },
-                               default=Pass
-                        ))
+metadata_block = Struct(
+    'metadata_block',
+    Rename('header', metadata_block_header),
+    Switch('metadata', lambda ctx: ctx['header'].block_type,
+    {
+        'STREAMINFO': metadata_streaminfo,
+        'VORBIS_COMMENT': metadata_vorbis_comment,
+        'PADDING': metadata_padding,
+        'APPLICATION': metadata_application,
+        'SEEKTABLE': metadata_seektable,
+        'CUESHEET': metadata_cuesheet,
+        'PICTURE': metadata_picture
+    },
+    default=Pass))
 
-flac = Struct('flac',
-              Magic('fLaC'),
-              RepeatUntil(
-                  lambda obj, ctx: obj.header.last_metadata_block is True,
-                  metadata_block
-              ))
+flac = Struct(
+    'flac',
+    Magic('fLaC'),
+    RepeatUntil(
+        lambda obj, ctx: obj.header.last_metadata_block is True,
+        metadata_block
+    ))
 
 if __name__ == '__main__':
     flac_data = "66 4C 61 43 00 00 00 22 10 00 10 00 00 0D 2E 00 44 E7 17 70 03 " \
