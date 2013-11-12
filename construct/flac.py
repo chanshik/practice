@@ -179,5 +179,6 @@ if __name__ == '__main__':
     else:
         f = flac.parse(open(sys.argv[1]).read())
 
-    print f.metadata_block[0]  # May be 'STREAMINFO'
-    print f.metadata_block[1]  # May be 'VORBIS_COMMENT'
+    for block in f.metadata_block:
+        if block.header.block_type == 'VORBIS_COMMENT':
+            print block.metadata.user_comment
