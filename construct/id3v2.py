@@ -17,8 +17,22 @@ from construct import *
 import pprint
 
 
+class PrintContext(Construct):
+    """
+    Print current context structure.
+    """
+    def _parse(self, stream, context):
+        print "\n# PrintContext ---"
+        pprint.pprint(context)
+        print "# --- PrintContent\n"
+
+
 def synchsafe(values):
     return values[0] << 21 | values[1] << 14 | values[2] << 7 | values[3]
+
+
+def int32(values):
+    return values[0] << 24 | values[1] << 16 | values[2] << 8 | values[3]
 
 
 def is_last_frame(obj, ctx):
@@ -37,9 +51,14 @@ frame_header = Struct(
     'frame_header',
     Anchor('frame_start_position'),
     String('frame_identifier', 4),
-    UBInt32('size'),
+    Array(4, UBInt8('size')),
+    IfThenElse(
+        'length_of_frame',
+        lambda ctx: ctx['_'].unsynchronisation is True,
+        Value('length_of_frame', lambda ctx: synchsafe(ctx.size)),
+        Value('length_of_frame', lambda ctx: int32(ctx.size))),
     Field('flags', 2),
-    String('information', lambda ctx: ctx.size),
+    String('information', lambda ctx: ctx.length_of_frame),
     Anchor('frame_end_position'))
 
 id3v2_parser = Struct(
