@@ -1,29 +1,40 @@
 import sys
+from threading import Timer
 import time
-import logging
 from watchdog.observers import Observer
-from watchdog.events import LoggingEventHandler, FileSystemEventHandler
+from watchdog.events import FileSystemEventHandler
 
 
-class FileNotifier(FileSystemEventHandler):
+class TimedEventHandler(FileSystemEventHandler):
+    def __init__(self):
+        self.notify_func = self.complete_event
+        self.timer = None
+        self.complete_callback = self.complete_event
+
+    def complete_event(self):
+        print "All changes completed."
+
+        self.timer = None
+
     def on_any_event(self, event):
+        print '-' * 60
         print 'event_type: ' + event.event_type
         print 'is_directory: ' + str(event.is_directory)
         print 'src_path: ' + event.src_path
 
-    def on_created(self, event):
-        print 'FileNotifier::on_created ' + str(event)
+        if self.timer is not None and self.timer.is_alive():
+            self.timer.cancel()
+            self.timer = None
+
+        self.timer = Timer(5.0, self.complete_callback)
+        self.timer.start()
 
 
 if __name__ == "__main__":
-    #logging.basicConfig(level=logging.INFO,
-    #                    format='%(asctime)s - %(message)s',
-    #                    datefmt='%Y-%m-%d %H:%M:%S')
     path = sys.argv[1] if len(sys.argv) > 1 else '.'
-    #event_handler = LoggingEventHandler()
 
     observer = Observer()
-    observer.schedule(FileNotifier(), path, recursive=True)
+    observer.schedule(TimedEventHandler(), path, recursive=True)
     observer.start()
 
     try:
