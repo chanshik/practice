@@ -1,7 +1,9 @@
 import os
 import threading
-import redis
 import time
+import socket
+
+import redis
 
 MASTER_ID_KEY = 'MASTER:ID'
 
@@ -13,6 +15,9 @@ class MasterBase(threading.Thread):
         self.current_master_id = 0
         self.local_master_id = 0
         self.is_master = False
+        self.master_key = ''
+        self.app_list_key = ''
+        self.unique_id = ''
         self.check_interval = interval
         self.timer = None
         self.do_running = False
@@ -28,6 +33,9 @@ class MasterBase(threading.Thread):
 
     def register(self, program_name, change_master_callback):
         self.program_name = program_name
+        self.unique_id = str(os.getpid()) + '-@' + socket.gethostname()
+        self.master_key = 'MASTER:%s:ID' % self.program_name
+        self.app_list_key = 'MASTER:%s:CLIENTS:%s' % (self.program_name, self.unique_id)
         self.pid = os.getpid()
         self.callback = change_master_callback
 
@@ -40,6 +48,7 @@ class MasterBase(threading.Thread):
                 host=self.redis_host,
                 port=self.redis_port,
                 db=self.redis_db)
+            self.redis.setex(self.app_list_key, self.check_interval * 2, 1)
         except redis.RedisError, e:
             print str(e)
 
@@ -90,12 +99,16 @@ class MasterBase(threading.Thread):
         self.current_master_id = int(self.redis.get(MASTER_ID_KEY))
         self.is_master = False
 
+    def heartbeat(self):
+        self.redis.setex(self.app_list_key, self.check_interval * 2, 1)
+
     def run(self):
         self.do_running = True
 
         try:
             while self.do_running:
                 self.is_master_alive()
+                self.heartbeat()
 
                 time.sleep(self.check_interval)
         except RuntimeError, e:
