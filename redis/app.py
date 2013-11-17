@@ -5,8 +5,6 @@ import socket
 
 import redis
 
-MASTER_ID_KEY = 'MASTER:ID'
-
 
 class MasterBase(threading.Thread):
     def __init__(self, host='localhost', port=6379, db=0, interval=5):
@@ -24,20 +22,22 @@ class MasterBase(threading.Thread):
 
         self.program_name = ''
         self.pid = 0
-        self.callback = None
+        self.master_callback = None
+        self.slave_callback = None
 
         self.redis = None
         self.redis_host = host
         self.redis_port = port
         self.redis_db = db
 
-    def register(self, program_name, change_master_callback):
+    def register(self, program_name, master_callback, slave_callback):
         self.program_name = program_name
         self.unique_id = str(os.getpid()) + '-@' + socket.gethostname()
         self.master_key = 'MASTER:%s:ID' % self.program_name
         self.app_list_key = 'MASTER:%s:CLIENTS:%s' % (self.program_name, self.unique_id)
         self.pid = os.getpid()
-        self.callback = change_master_callback
+        self.master_callback = master_callback
+        self.slave_callback = slave_callback
 
     def __repr__(self):
         return "%s (%d)" % (self.program_name, self.pid)
@@ -59,45 +59,57 @@ class MasterBase(threading.Thread):
         self.do_running = False
 
     def is_master_alive(self):
-        success = self.redis.setnx(MASTER_ID_KEY, self.local_master_id)
+        success = self.redis.setnx(self.master_key, self.current_master_id)
         if success:
-            print 'Access ' + MASTER_ID_KEY + ' succeed.'
             self.take_master()
-        else:
-            master_id = int(self.redis.get(MASTER_ID_KEY))
-            if master_id == self.local_master_id:
-                self.is_master = True
-                self.update_master()
-            else:
-                self.is_master = False
-                self.do_slave()
 
-        print 'MasterID: %d | LocalID: %d | Master: %s' % (
-            self.current_master_id,
+        master_id = int(self.redis.get(self.master_key))
+        if master_id == self.local_master_id:
+            self.is_master = True
+            self.update_master()
+        else:
+            # Changed status from master to slave.
+            if self.is_master is True:
+                self.slave_callback()
+
+            self.is_master = False
+            self.current_master_id = master_id
+
+        print '[%d] MasterID: %d | LocalID: %d | Master: %s' % (
+            os.getpid(),
+            master_id,
             self.local_master_id,
             self.is_master
         )
 
     def take_master(self):
-        self.local_master_id = self.current_master_id + 1
-        self.current_master_id = self.local_master_id
-        self.redis.setex(
-            MASTER_ID_KEY,
-            self.check_interval * 2,
-            self.local_master_id)
-        self.is_master = True
-        self.callback()
+        with self.redis.pipeline() as pipe:
+            try:
+                pipe.watch(self.master_key)
+
+                cur_master_id = pipe.get(self.master_key)
+                next_master_id = int(cur_master_id) + 1
+
+                pipe.multi()
+                pipe.setex(
+                    self.master_key,
+                    self.check_interval * 2,
+                    next_master_id)
+                pipe.execute()
+
+                self.local_master_id = next_master_id
+                self.current_master_id = self.local_master_id
+                self.is_master = True
+                self.master_callback()
+            except redis.WatchError, e:
+                self.is_master = False
 
     def update_master(self):
         self.redis.setex(
-            MASTER_ID_KEY,
+            self.master_key,
             self.check_interval * 2,
             self.local_master_id)
         self.is_master = True
-
-    def do_slave(self):
-        self.current_master_id = int(self.redis.get(MASTER_ID_KEY))
-        self.is_master = False
 
     def heartbeat(self):
         self.redis.setex(self.app_list_key, self.check_interval * 2, 1)
@@ -116,12 +128,15 @@ class MasterBase(threading.Thread):
 
 
 def got_master():
-    print 'Wake up'
+    print "[%d] Master changed." % os.getpid()
+
+def slave():
+    print "[%d] Master released." % os.getpid()
 
 if __name__ == '__main__':
     app = MasterBase()
 
-    app.register('App', got_master)
+    app.register('App', got_master, slave)
     app.connect_redis()
     app.start()
 
