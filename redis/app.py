@@ -101,7 +101,7 @@ class MasterBase(threading.Thread):
                 self.current_master_id = self.local_master_id
                 self.is_master = True
                 self.master_callback()
-            except redis.WatchError, e:
+            except redis.WatchError:
                 self.is_master = False
 
     def update_master(self):
@@ -112,15 +112,24 @@ class MasterBase(threading.Thread):
         self.is_master = True
 
     def heartbeat(self):
-        self.redis.setex(self.app_list_key, self.check_interval * 2, 1)
+        re_tries = 0
+        while re_tries < 4:
+            try:
+                self.redis.setex(self.app_list_key, self.check_interval * 2, 1)
+
+                break
+            except redis.RedisError, e:
+                re_tries += 1
+                self.connect_redis()
+
 
     def run(self):
         self.do_running = True
 
         try:
             while self.do_running:
-                self.is_master_alive()
                 self.heartbeat()
+                self.is_master_alive()
 
                 time.sleep(self.check_interval)
         except RuntimeError, e:
@@ -130,14 +139,19 @@ class MasterBase(threading.Thread):
 def got_master():
     print "[%d] Master changed." % os.getpid()
 
+
 def slave():
     print "[%d] Master released." % os.getpid()
+
 
 if __name__ == '__main__':
     app = MasterBase()
 
     app.register('App', got_master, slave)
-    app.connect_redis()
+    if app.connect_redis() is False:
+        print "Can't connect to Redis. Exiting."
+        os.exit(1)
+
     app.start()
 
     try:
