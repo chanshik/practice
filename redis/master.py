@@ -1,3 +1,8 @@
+"""
+Master/Slave automatic fail over module based on Redis.
+
+Written by Chan Shik Lim. (chanshik@gmail.com)
+"""
 import os
 import threading
 import time
@@ -118,10 +123,9 @@ class MasterBase(threading.Thread):
                 self.redis.setex(self.app_list_key, self.check_interval * 2, 1)
 
                 break
-            except redis.RedisError, e:
+            except redis.RedisError:
                 re_tries += 1
                 self.connect_redis()
-
 
     def run(self):
         self.do_running = True
