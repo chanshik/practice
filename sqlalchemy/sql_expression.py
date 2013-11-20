@@ -6,7 +6,7 @@ SQLAlchemy Tutorial
 from sqlalchemy import Table, Column, Integer, String, MetaData, ForeignKey
 from sqlalchemy import create_engine
 from sqlalchemy.sql import select, and_, or_, not_
-from sqlalchemy.sql import bindparam
+from sqlalchemy.sql import bindparam, func
 
 engine = create_engine('sqlite:///:memory:', echo=True)
 
