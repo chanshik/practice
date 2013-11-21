@@ -10,6 +10,7 @@ class IpAddressAdapter(Adapter):
             return "".join(chr(int(b)) for b in obj.split("."))
         else:
             return bytes(int(b) for b in obj.split("."))
+
     def _decode(self, obj, context):
         if bytes is str:
             return ".".join(str(ord(b)) for b in obj)
