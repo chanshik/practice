@@ -7,8 +7,8 @@ Usage:
 
 from setuptools import setup
 
-APP = ['simple.py']
-DATA_FILES = []
+APP = ['dotview.py']
+DATA_FILES = ['English.lproj']
 
 setup(
     app=APP,
