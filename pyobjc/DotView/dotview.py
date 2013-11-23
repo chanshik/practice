@@ -6,6 +6,7 @@ http://pythonhosted.org/pyobjc/examples/Cocoa/AppKit/DotView/index.html
 
 from Cocoa import *
 from PyObjCTools import AppHelper
+from AppKit import NSView
 
 ZOOM = 2.0
 
