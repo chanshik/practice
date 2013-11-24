@@ -1,23 +1,37 @@
-import sys
-print "\n".join(sys.path)
+"""
+Random number generator in Cocoa Programming for MAC OS X book.
 
+Written by Chan Shik Lim. (chanshik@gmail.com)
+"""
+import random
+import time
 
 from Cocoa import *
 from Foundation import NSObject
-import random
-import time
+from PyObjCTools import AppHelper
 
 
 class RandomGeneratorController(NSWindowController):
     numberTextField = objc.IBOutlet()
 
     def windowDidLoad(self):
+        NSLog('windowDidLoad')
         NSWindowController.windowDidLoad(self)
 
         self.number = 0
         self.updateDisplay()
 
-        self.delegate = AppDelegate().alloc().init()
+    def windowShouldClose_(self, sender):
+        NSLog('windowShouldClose')
+        return True
+
+    def windowWillClose_(self, notification):
+        NSLog('windowWillClose')
+        AppHelper.stopEventLoop()
+
+    def applicationShouldTerminateAfterLastWindowClosed_(self, sender):
+        NSLog('applicationShouldTerminateAfterLastWindowClosed')
+        return True
 
     @objc.IBAction
     def seed_(self, sender):
@@ -34,6 +48,7 @@ class RandomGeneratorController(NSWindowController):
         self.updateDisplay()
 
     def updateDisplay(self):
+        NSLog('updateDisplay')
         self.numberTextField.setStringValue_(str(self.number))
 
 
@@ -43,7 +58,4 @@ if __name__ == '__main__':
     viewController = RandomGeneratorController.alloc().initWithWindowNibName_('RandomGenerator')
     viewController.showWindow_(viewController)
 
-    NSApp.activateIgnoringOtherApps_(True)
-
-    from PyObjCTools import AppHelper
     AppHelper.runEventLoop()
