@@ -32,7 +32,8 @@ ip_packet = Struct(
         )
     ))
 
-
 packet = ip_packet.parse(unhexlify(six.b('c0a80001')))
 
 print packet
+print 'Signed IP: ' + str(packet.signed_ip)
+print 'Unsigned IP: ' + str(packet.unsigned_ip)
