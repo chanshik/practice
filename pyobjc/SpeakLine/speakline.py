@@ -21,8 +21,11 @@ class SpeakLineController(NSWindowController):
 
         self.voice = NSSpeechSynthesizer.defaultVoice()
         self.speech = NSSpeechSynthesizer.alloc().initWithVoice_(self.voice)
+        self.speech.setDelegate_(self)
 
         self.window().makeFirstResponder_(self.speakTextField)
+        self.speakButton.setEnabled_(True)
+        self.stopButton.setEnabled_(False)
 
     def windowShouldClose_(self, sender):
         NSLog('windowShouldClose')
@@ -40,6 +43,9 @@ class SpeakLineController(NSWindowController):
     def sayIt_(self, sender):
         NSLog('sayIt')
 
+        self.speakButton.setEnabled_(False)
+        self.stopButton.setEnabled_(True)
+
         self.speakStr = self.speakTextField.stringValue()
 
         if len(self.speakStr) == 0:
@@ -53,6 +59,15 @@ class SpeakLineController(NSWindowController):
         NSLog('stop')
 
         self.speech.stopSpeaking()
+
+        self.speakButton.setEnabled_(True)
+        self.stopButton.setEnabled_(False)
+
+    def speechSynthesizer_didFinishSpeaking_(self, sender, finishedSpeaking):
+        NSLog('didFinishSpeaking_')
+
+        self.speakButton.setEnabled_(True)
+        self.stopButton.setEnabled_(False)
 
 
 if __name__ == '__main__':
