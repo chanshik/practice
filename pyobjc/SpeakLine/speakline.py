@@ -13,14 +13,20 @@ class SpeakLineController(NSWindowController):
     speakTextField = objc.IBOutlet()
     speakButton = objc.IBOutlet()
     stopButton = objc.IBOutlet()
+    tableView = objc.IBOutlet()
     speakStr = ''
+
+    def awakeFromNib(self):
+        NSLog('awakeFromNib')
+        self.voice = NSSpeechSynthesizer.defaultVoice()
+        self.speech = NSSpeechSynthesizer.alloc().initWithVoice_(self.voice)
+        self.voiceFullnames = NSSpeechSynthesizer.availableVoices()
+        self.voices = [name[name.rindex('.') + 1:] for name in self.voiceFullnames]
 
     def windowDidLoad(self):
         NSWindowController.windowDidLoad(self)
         NSLog('windowDidLoad')
 
-        self.voice = NSSpeechSynthesizer.defaultVoice()
-        self.speech = NSSpeechSynthesizer.alloc().initWithVoice_(self.voice)
         self.speech.setDelegate_(self)
 
         self.window().makeFirstResponder_(self.speakTextField)
@@ -69,6 +75,32 @@ class SpeakLineController(NSWindowController):
         self.speakButton.setEnabled_(True)
         self.stopButton.setEnabled_(False)
 
+    # data source methods
+    def numberOfRowsInTableView_(self, aTableView):
+        return len(self.voices)
+
+    def tableView_objectValueForTableColumn_row_(
+            self, aTableView, aTableColumn, rowIndex):
+
+        return self.voices[rowIndex]
+
+    #def tableView_setObjectValue_forTableColumn_row_(
+    #        self, aTableView, anObject, aTableColumn, rowIndex):
+    #    pass
+
+    # delegate methods
+    def tableView_shouldSelectRow_(self, aTableView, rowIndex):
+        return True
+
+    def tableView_shouldEditTableColumn_row_(self, aTableView, aTableColumn, rowIndex):
+        return False
+
+    def tableViewSelectionDidChange_(self, notification):
+        row = self.tableView.selectedRow()
+
+        self.speech.setVoice_(self.voiceFullnames[row])
+
+        NSLog('Selected: ' + str(row))
 
 if __name__ == '__main__':
     app = NSApplication.sharedApplication()
