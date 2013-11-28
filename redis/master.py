@@ -4,6 +4,7 @@ Master/Slave automatic fail over module based on Redis.
 Written by Chan Shik Lim. (chanshik@gmail.com)
 """
 import os
+import sys
 import threading
 import time
 import socket
@@ -154,7 +155,7 @@ if __name__ == '__main__':
     app.register('App', got_master, slave)
     if app.connect_redis() is False:
         print "Can't connect to Redis. Exiting."
-        os.exit(1)
+        sys.exit(1)
 
     app.start()
 
