@@ -2,3 +2,5 @@ construct
 redis
 watchdog
 sqlalchemy
+gevent
+termcolor
