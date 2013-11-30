@@ -58,4 +58,6 @@ if __name__ == '__main__':
     viewController = RandomGeneratorController.alloc().initWithWindowNibName_('RandomGenerator')
     viewController.showWindow_(viewController)
 
+    NSApp.activateIgnoringOtherApps_(True)
+
     AppHelper.runEventLoop()
