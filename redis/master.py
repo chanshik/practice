@@ -20,6 +20,7 @@ class MasterBase(threading.Thread):
         self.local_master_id = 0
         self.is_master = False
         self.master_key = ''
+        self.master_client_key = ''
         self.app_list_key = ''
         self.unique_id = ''
         self.check_interval = interval
@@ -40,6 +41,7 @@ class MasterBase(threading.Thread):
         self.program_name = program_name
         self.unique_id = str(os.getpid()) + '-@' + socket.gethostname()
         self.master_key = 'MASTER:%s:ID' % self.program_name
+        self.master_client_key = 'MASTER:%s:MASTER_CLIENT' % self.program_name
         self.app_list_key = 'MASTER:%s:CLIENTS:%s' % (self.program_name, self.unique_id)
         self.pid = os.getpid()
         self.master_callback = master_callback
@@ -70,7 +72,7 @@ class MasterBase(threading.Thread):
             self.take_master()
 
         master_id = int(self.redis.get(self.master_key))
-        if master_id == self.local_master_id:
+        if self.local_master_id != 0 and master_id == self.local_master_id:
             self.is_master = True
             self.update_master()
         else:
@@ -90,31 +92,43 @@ class MasterBase(threading.Thread):
 
     def take_master(self):
         with self.redis.pipeline() as pipe:
-            try:
-                pipe.watch(self.master_key)
+            while True:
+                try:
+                    pipe.watch(self.master_key)
 
-                cur_master_id = pipe.get(self.master_key)
-                next_master_id = int(cur_master_id) + 1
+                    cur_master_id = pipe.get(self.master_key)
+                    next_master_id = int(cur_master_id) + 1
 
-                pipe.multi()
-                pipe.setex(
-                    self.master_key,
-                    self.check_interval * 2,
-                    next_master_id)
-                pipe.execute()
+                    pipe.multi()
+                    pipe.setex(
+                        self.master_key,
+                        self.check_interval * 2,
+                        next_master_id)
+                    pipe.execute()
 
-                self.local_master_id = next_master_id
-                self.current_master_id = self.local_master_id
-                self.is_master = True
-                self.master_callback()
-            except redis.WatchError:
-                self.is_master = False
+                    self.local_master_id = next_master_id
+                    self.current_master_id = self.local_master_id
+                    self.is_master = True
+
+                    self.master_callback()
+                    break
+                except redis.WatchError:
+                    if self.current_master_id != int(self.redis.get(self.master_key)):
+                        self.is_master = False
+                        break
 
     def update_master(self):
         self.redis.setex(
             self.master_key,
             self.check_interval * 2,
             self.local_master_id)
+
+        self.redis.setex(
+            self.master_client_key,
+            self.check_interval * 2,
+            self.unique_id
+        )
+
         self.is_master = True
 
     def heartbeat(self):
