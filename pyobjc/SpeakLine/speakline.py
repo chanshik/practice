@@ -51,6 +51,7 @@ class SpeakLineController(NSWindowController):
 
         self.speakButton.setEnabled_(False)
         self.stopButton.setEnabled_(True)
+        self.tableView.setEnabled_(False)
 
         self.speakStr = self.speakTextField.stringValue()
 
@@ -68,12 +69,14 @@ class SpeakLineController(NSWindowController):
 
         self.speakButton.setEnabled_(True)
         self.stopButton.setEnabled_(False)
+        self.tableView.setEnabled_(False)
 
     def speechSynthesizer_didFinishSpeaking_(self, sender, finishedSpeaking):
         NSLog('didFinishSpeaking_')
 
         self.speakButton.setEnabled_(True)
         self.stopButton.setEnabled_(False)
+        self.tableView.setEnabled_(True)
 
     # data source methods
     def numberOfRowsInTableView_(self, aTableView):
