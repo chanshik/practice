@@ -88,8 +88,6 @@ def server_thread(port):
 
     while server_run:
         try:
-            data = None
-
             with Timeout(2, False):
                 (data, from_ip) = server_socket.recvfrom(1024)
 
@@ -113,33 +111,35 @@ def server_thread(port):
             server_run = False
 
 
-def client_request():
+def client_request(no):
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    seq = int(time.time()) % 1000
+    seq = int(time.time() * no) % 1000
 
     while True:
         try:
             ping = make_ping(seq)
 
-            print colored('Sending PING...', 'red')
+            print colored('[' + str(no) + '] Sending PING...', 'red')
 
             client_socket.sendto(ping, ('127.0.0.1', 33445))
 
             pong_packet, from_ip = client_socket.recvfrom(1024)
             pong = pong_parse(pong_packet)
 
-            print colored('Ack. number: %d' % pong.ack, 'blue')
+            print colored('[' + str(no) + '] Ack. number: %d' % pong.ack, 'blue')
 
             seq = pong.ack
 
-            sleep(1)
+            sleep(1 + no)
         except KeyboardInterrupt:
             break
 
 
 if __name__ == '__main__':
     server = Greenlet.spawn(server_thread, 33445)
-    client = Greenlet.spawn(client_request)
+    client = Greenlet.spawn(client_request, 1)
+    client = Greenlet.spawn(client_request, 2)
+    client = Greenlet.spawn(client_request, 3)
 
     try:
         server.join()
